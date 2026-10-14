@@ -4,7 +4,7 @@ A one-line [Claude Code](https://code.claude.com) status line in bash and jq.
 Plain text when all is well; yellow or red only when something needs attention.
 
 ```
-claude-plugins ⌥ main* | statusline setup | ███████░░░ 146k/200k  73% | cache 97% ● 47m | 5h 8% ↻ 4h16m | $2.88          Opus 5.5 high
+claude-plugins ⌥ main* | statusline setup | ███████░░░ 146k/200k  73% | cache 97% ● 47m | 5h 8% ↻ 4h16m | $2.88   d1411d72  Opus 5.5 high
 ```
 
 ## Segments
