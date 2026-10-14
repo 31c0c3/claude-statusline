@@ -33,6 +33,7 @@ jq -rj --arg branch "$branch" --arg dirty "$dirty" --argjson soft "$soft_cap" --
 
   paint("90"; " | ") as $sep
   | (.model.display_name + (if .effort.level then paint("90"; " " + .effort.level) else "" end)) as $model
+  | .session_id as $sid
   | .context_window.context_window_size as $size
   | (.context_window.current_usage // {} | [.input_tokens, .cache_creation_input_tokens, .cache_read_input_tokens] | add // 0) as $used
   | ($used > $soft and $size > $soft) as $over
@@ -68,6 +69,8 @@ jq -rj --arg branch "$branch" --arg dirty "$dirty" --argjson soft "$soft_cap" --
   | join($sep) as $left
   # Model right-aligned to the terminal width; appended as one more segment when it does not fit
   | def width: gsub("\u001b\\[[0-9;]*m"; "") | length;
-    ($cols - $margin - ($left | width) - ($model | width)) as $pad
-  | if $cols > 0 and $pad >= 2 then $left + " " * $pad + $model else $left + $sep + $model end
+    ($cols - $margin - ($left | width)) as $room
+  # Session ID before the model when it fits: the full ID, else its first 8 characters, else left out
+  | (first(($sid // empty), ($sid // empty | .[:8]) | paint("90"; .) + "  " + $model | select($room - width >= 2)) // $model) as $right
+  | if $cols > 0 and $room - ($right | width) >= 2 then $left + " " * ($room - ($right | width)) + $right else $left + $sep + $model end
 ' <<<"$input"

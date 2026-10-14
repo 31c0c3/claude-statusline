@@ -18,7 +18,7 @@ claude-plugins ⌥ main* | statusline setup | ███████░░░ 146
 | `5h 8% ↻ 4h16m` | 5-hour limit used and time to reset (Pro/Max) | Yellow from 50%, red from 80% |
 | `7d 40% ▲` | 7-day limit, shown only when ahead of an even 1/7-per-day pace | Yellow; red when more than a day ahead |
 | `$2.88` | Session cost | |
-| `Opus 5.5 high` | Model and effort, right-aligned | |
+| `d1411d72-… Opus 5.5 high` | Session ID in gray, then model and effort, right-aligned. The full ID when it fits (usable with `claude -r`), else its first 8 characters, else none | |
 
 ## Install
 
