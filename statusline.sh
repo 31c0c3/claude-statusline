@@ -13,6 +13,7 @@ soft_cap=${STATUSLINE_SOFT_CTX:-200000}
 cols=${COLUMNS:-0}
 margin=${STATUSLINE_RIGHT_MARGIN:-4}
 
+# Single-quoted: a ' anywhere, comments included, ends it. Read input fields at the top, where . is still the input.
 jq -rj --arg branch "$branch" --arg dirty "$dirty" --argjson soft "$soft_cap" --argjson cols "$cols" --argjson margin "$margin" '
   # Color is for warnings: yellow (33) or red (31). Gray (90) marks secondary text; "" leaves the terminal default
   def paint(code; s): if code == "" then s else "\u001b[\(code)m\(s)\u001b[0m" end;
