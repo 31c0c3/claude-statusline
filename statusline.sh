@@ -18,11 +18,10 @@ jq -rj --arg branch "$branch" --arg dirty "$dirty" --argjson soft "$soft_cap" --
   # Color is for warnings: yellow (33) or red (31). Gray (90) marks secondary text; "" leaves the terminal default
   def paint(code; s): if code == "" then s else "\u001b[\(code)m\(s)\u001b[0m" end;
   def pad2: tostring | if length < 2 then "0" + . else . end;
-  def dec1(x): (x * 10 | round / 10 | tostring) | if test("\\.") then . else . + ".0" end;
+  # Whole thousands; millions keep one decimal unless whole: 41k, 1M, 1.2M
   def human(n):
-    if n >= 1e6 then dec1(n / 1e6) + "M"
-    elif n >= 1e5 then "\(n / 1e3 | round)k"
-    elif n >= 1e3 then dec1(n / 1e3) + "k"
+    if n >= 999500 then "\(n / 1e5 | round / 10)M"
+    elif n >= 1e3 then "\(n / 1e3 | round)k"
     else "\(n | round)" end;
   def money(x): (x * 100 | round) as $c | "$\($c / 100 | floor).\($c % 100 | pad2)";
   # Time until an epoch timestamp: 2h05m / 47m / <1m
@@ -40,25 +39,24 @@ jq -rj --arg branch "$branch" --arg dirty "$dirty" --argjson soft "$soft_cap" --
   | ($used > $soft and $size > $soft) as $over
   | (if $over then $size else [$size, $soft] | min end) as $cap
   | ($used * 100 / $cap) as $pct
-  | ([($pct / 10 | round), 10] | min) as $filled
+  | ([($pct * 8 / 100 | round), 8] | min) as $filled
 
   | [
       (.workspace.current_dir | split("/") | last)
         + (if $branch != "" then " ⌥ " + $branch + (if $dirty != "" then paint("33"; "*") else "" end) else "" end),
       # Session name from /rename or the AI-generated title, truncated
-      (.session_name // empty | if length > 32 then .[:31] + "…" else . end),
-      warn($over; false; "█" * $filled // "") + paint("90"; "░" * (10 - $filled) // "")
-        + " \(human($used))/\(human($cap))  \($pct | round)%"
-        + (if $over then paint("33"; " ▲ >" + human($soft)) else "" end),
+      (.session_name // empty | if length > 28 then .[:27] + "…" else . end),
+      warn($over; false; "█" * $filled // "") + paint("90"; "░" * (8 - $filled) // "")
+        + " \(human($used))/\(human($cap))"
+        + (if $over then paint("33"; " ▲") else "" end),
       # Cache: hit ratio, then time left while warm, or what the next turn re-caches once cold
       (.prompt_cache // empty | select(.caching_observed)
-       | "cache " + warn(.hit_ratio < 0.8; .hit_ratio < 0.5; "\(.hit_ratio * 100 | floor)%")
+       | "C " + warn(.hit_ratio < 0.8; .hit_ratio < 0.5; "\(.hit_ratio * 100 | floor)%")
          + (if .warm and (.expires_at // 0) > now then " ● " + until(.expires_at)
-            else paint("33"; " ○" + (if .recache_tokens_if_cold then " ↑ " + human(.recache_tokens_if_cold) else "" end)) end)
-         + (if (.misses // 0) > 0 then " × \(.misses)" else "" end)),
+            else paint("33"; " ○" + (if .recache_tokens_if_cold then " ↑ " + human(.recache_tokens_if_cold) else "" end)) end)),
       # 5-hour subscription limit (Pro/Max only)
       (.rate_limits.five_hour // empty
-       | "5h " + warn(.used_percentage >= 50; .used_percentage >= 80; "\(.used_percentage | round)%") + " ↻ " + until(.resets_at)),
+       | warn(.used_percentage >= 50; .used_percentage >= 80; "\(.used_percentage | round)%") + " ↻ " + until(.resets_at)),
       # 7-day limit, shown only when ahead of pace: the budget grows by 1/7 at the start of each day of the window
       (.rate_limits.seven_day // empty
        | ([((7 * 86400 - (.resets_at - now)) / 86400 | ceil), 1] | max) as $day
