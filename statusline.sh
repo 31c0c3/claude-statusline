@@ -1,5 +1,6 @@
 #!/bin/bash
 # Claude Code status line: folder ⌥ branch* | session | ctx bar | cache | 5h | 7d | $cost ... model effort
+#                                                                                               session ID
 # Icons: Arrows or Geometric Shapes glyphs, each followed by a space. Rarer glyphs come from a
 # fallback font, render wider than their one cell, and overlap the next character.
 input=$(cat)
@@ -69,7 +70,8 @@ jq -rj --arg branch "$branch" --arg dirty "$dirty" --argjson soft "$soft_cap" --
   # Model right-aligned to the terminal width; appended as one more segment when it does not fit
   | def width: gsub("\u001b\\[[0-9;]*m"; "") | length;
     ($cols - $margin - ($left | width)) as $room
-  # Session ID before the model when it fits: the full ID, else its first 8 characters, else left out
-  | (first(($sid // empty), ($sid // empty | .[:8]) | paint("90"; .) + "  " + $model | select($room - width >= 2)) // $model) as $right
-  | if $cols > 0 and $room - ($right | width) >= 2 then $left + " " * ($room - ($right | width)) + $right else $left + $sep + $model end
+  | (if $cols > 0 and $room - ($model | width) >= 2 then $left + " " * ($room - ($model | width)) + $model else $left + $sep + $model end)
+  # Session ID on a second line, right-aligned under the model. Claude Code trims leading spaces,
+  # so the line starts with a reset code
+  + (if $sid then "\n\u001b[0m" + " " * ([$cols - $margin - ($sid | length), 0] | max) + paint("90"; $sid) else "" end)
 ' <<<"$input"
