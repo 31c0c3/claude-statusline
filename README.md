@@ -4,8 +4,8 @@ A two-line [Claude Code](https://code.claude.com) status line in bash and jq.
 Plain text when all is well; yellow or red only when something needs attention.
 
 ```
-claude-plugins ⌥ main* | statusline setup | ██████░░ 146k/200k | C 97% ● 47m | 8% ↻ 4h16m | $2.88          Opus 5.5 high
-                                                                                    d1411d72-0c5e-4f3a-9b7d-2e8a6c41f905
+claude-plugins ⌥ main* | statusline setup | ██████░░ 146k/200k | C 97% ● 47m | $2.88                         Opus 5.5 high
+                                                        8% ↻ 4h16m | 40/57% ↻ 3d12h | d1411d72-0c5e-4f3a-9b7d-2e8a6c41f905
 ```
 
 ## Segments
@@ -16,11 +16,11 @@ claude-plugins ⌥ main* | statusline setup | ██████░░ 146k/200k
 | `statusline setup` | Session name from `/rename`, or the generated title, cut to 28 characters | |
 | `██████░░ 146k/200k` | Context used, measured against a 200k soft cap; past it, against the full window | Yellow past the cap, with `▲` |
 | `C 97% ● 47m` | Prompt-cache hit rate, time until the cache expires | Hit rate below 80% (red below 50%); `○ ↑ 117k` once expired: what the next message re-caches |
-| `8% ↻ 4h16m` | 5-hour limit used and time to reset (Pro/Max) | Yellow from 50%, red from 80% |
-| `7d 40% ▲` | 7-day limit, shown only when ahead of an even 1/7-per-day pace | Yellow; red when more than a day ahead |
 | `$2.88` | Session cost | |
 | `Opus 5.5 high` | Model and effort, right-aligned | |
-| `d1411d72-0c5e-…` | Session ID for `claude -r`, in gray on the second line, under the model | |
+| `8% ↻ 4h16m` | 5-hour limit used and time to reset (Pro/Max), gray on the second line | Usage yellow from 50%, red from 80% |
+| `40/57% ↻ 3d12h` | 7-day limit used out of the budget so far, which grows by 1/7 at the start of each day | Usage yellow past the budget, red more than a day past |
+| `d1411d72-0c5e-…` | Session ID for `claude -r`, gray, right-aligned under the model | |
 
 ## Install
 

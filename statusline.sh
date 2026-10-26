@@ -1,6 +1,6 @@
 #!/bin/bash
-# Claude Code status line: folder ⌥ branch* | session | ctx bar | cache | 5h | 7d | $cost ... model effort
-#                                                                                               session ID
+# Claude Code status line: folder ⌥ branch* | session | ctx bar | cache | $cost ... model effort
+#                                                          ... 5h | 7d | session ID
 # Icons: Arrows or Geometric Shapes glyphs, each followed by a space. Rarer glyphs come from a
 # fallback font, render wider than their one cell, and overlap the next character.
 input=$(cat)
@@ -25,12 +25,17 @@ jq -rj --arg branch "$branch" --arg dirty "$dirty" --argjson soft "$soft_cap" --
     elif n >= 1e3 then "\(n / 1e3 | round)k"
     else "\(n | round)" end;
   def money(x): (x * 100 | round) as $c | "$\($c / 100 | floor).\($c % 100 | pad2)";
-  # Time until an epoch timestamp: 2h05m / 47m / <1m
+  # Time until an epoch timestamp: 3d04h / 2h05m / 47m / <1m
   def until(ts): ([ts - now, 0] | max) as $s
-    | if $s >= 3600 then "\($s / 3600 | floor)h\($s % 3600 / 60 | floor | pad2)m"
+    | if $s >= 86400 then "\($s / 86400 | floor)d\($s % 86400 / 3600 | floor | pad2)h"
+      elif $s >= 3600 then "\($s / 3600 | floor)h\($s % 3600 / 60 | floor | pad2)m"
       elif $s >= 60 then "\($s / 60 | floor)m"
       else "<1m" end;
   def warn(yellow; red; s): paint(if red then "31" elif yellow then "33" else "" end; s);
+  # Subscription limit: all gray while fine; on a warning only the usage takes the color
+  def limit(yellow; red; used; note; ts):
+    if red or yellow then warn(yellow; red; used) + paint("90"; note) + " ↻ " + until(ts)
+    else paint("90"; used + note + " ↻ " + until(ts)) end;
 
   paint("90"; " | ") as $sep
   | (.model.display_name + (if .effort.level then paint("90"; " " + .effort.level) else "" end)) as $model
@@ -42,7 +47,7 @@ jq -rj --arg branch "$branch" --arg dirty "$dirty" --argjson soft "$soft_cap" --
   | ($used * 100 / $cap) as $pct
   | ([($pct * 8 / 100 | round), 8] | min) as $filled
 
-  | [
+  | ([
       (.workspace.current_dir | split("/") | last)
         + (if $branch != "" then " ⌥ " + $branch + (if $dirty != "" then paint("33"; "*") else "" end) else "" end),
       # Session name from /rename or the AI-generated title, truncated
@@ -55,23 +60,28 @@ jq -rj --arg branch "$branch" --arg dirty "$dirty" --argjson soft "$soft_cap" --
        | "C " + warn(.hit_ratio < 0.8; .hit_ratio < 0.5; "\(.hit_ratio * 100 | floor)%")
          + (if .warm and (.expires_at // 0) > now then " ● " + until(.expires_at)
             else paint("33"; " ○" + (if .recache_tokens_if_cold then " ↑ " + human(.recache_tokens_if_cold) else "" end)) end)),
-      # 5-hour subscription limit (Pro/Max only)
+      money(.cost.total_cost_usd)
+    ] | join($sep)) as $left
+  # Subscription limits (Pro/Max only), on the second line
+  | ([
       (.rate_limits.five_hour // empty
-       | warn(.used_percentage >= 50; .used_percentage >= 80; "\(.used_percentage | round)%") + " ↻ " + until(.resets_at)),
-      # 7-day limit, shown only when ahead of pace: the budget grows by 1/7 at the start of each day of the window
+       | limit(.used_percentage >= 50; .used_percentage >= 80; "\(.used_percentage | round)%"; ""; .resets_at)),
+      # 7-day used/budget: the budget grows by 1/7 at the start of each day; red when a day ahead
       (.rate_limits.seven_day // empty
        | ([((7 * 86400 - (.resets_at - now)) / 86400 | ceil), 1] | max) as $day
        | ([$day * 100 / 7, 100] | min) as $budget
-       | select(.used_percentage > $budget)
-       | "7d " + warn(true; .used_percentage > $budget + 100 / 7; "\(.used_percentage | round)% ▲")),
-      money(.cost.total_cost_usd)
-    ]
-  | join($sep) as $left
-  # Model right-aligned to the terminal width; appended as one more segment when it does not fit
+       | limit(.used_percentage > $budget; .used_percentage > $budget + 100 / 7;
+           "\(.used_percentage | round)"; "/\($budget | round)%"; .resets_at))
+    ] | join($sep)) as $limits
+  # Right-align r after l to the terminal width; appended as one more segment when it does not fit
   | def width: gsub("\u001b\\[[0-9;]*m"; "") | length;
-    ($cols - $margin - ($left | width)) as $room
-  | (if $cols > 0 and $room - ($model | width) >= 2 then $left + " " * ($room - ($model | width)) + $model else $left + $sep + $model end)
-  # Session ID on a second line, right-aligned under the model. Claude Code trims leading spaces,
-  # so the line starts with a reset code
-  + (if $sid then "\n\u001b[0m" + " " * ([$cols - $margin - ($sid | length), 0] | max) + paint("90"; $sid) else "" end)
+    def align(l; r): ($cols - $margin - (l | width) - (r | width)) as $gap
+      | if $cols > 0 and $gap >= 2 then l + " " * $gap + r
+        elif l == "" then r
+        else l + $sep + r end;
+    align($left; $model)
+  # Second line: limits and session ID, right-aligned under the model. Claude Code trims
+  # leading spaces, so the line starts with a reset code
+  + ([$limits, ($sid // "" | paint("90"; .))] | map(select(. != "")) | join($sep)) as $right
+  | (if $right != "" then "\n\u001b[0m" + align(""; $right) else "" end)
 ' <<<"$input"
