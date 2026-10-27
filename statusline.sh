@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Code status line: folder ⌥ branch* | session | ctx bar | cache | $cost ... model effort
+# Claude Code status line: folder ⌥ branch* | ctx bar | cache | $cost ... model effort
 #                                                          ... 5h | 7d | session ID
 # Icons: Arrows or Geometric Shapes glyphs, each followed by a space. Rarer glyphs come from a
 # fallback font, render wider than their one cell, and overlap the next character.
@@ -7,6 +7,9 @@ input=$(cat)
 dir=$(jq -r '.workspace.current_dir' <<<"$input")
 branch=$(git -C "$dir" --no-optional-locks branch --show-current 2>/dev/null)
 dirty=$(git -C "$dir" --no-optional-locks status --porcelain 2>/dev/null | head -1)
+# In Herdr the session name labels Claude's pane instead, on the border beside a split; it appears after the first message
+name=$(jq -r '.session_name // empty' <<<"$input")
+[[ -n $HERDR_PANE_ID && -n $name ]] && herdr pane rename "$HERDR_PANE_ID" "$name" >/dev/null 2>&1
 
 # Soft context cap: the bar measures against this until usage passes it, then switches to the full window with a warning
 soft_cap=${STATUSLINE_SOFT_CTX:-200000}
@@ -50,8 +53,6 @@ jq -rj --arg branch "$branch" --arg dirty "$dirty" --argjson soft "$soft_cap" --
   | ([
       (.workspace.current_dir | split("/") | last)
         + (if $branch != "" then " ⌥ " + $branch + (if $dirty != "" then paint("33"; "*") else "" end) else "" end),
-      # Session name from /rename or the AI-generated title, truncated
-      (.session_name // empty | if length > 28 then .[:27] + "…" else . end),
       warn($over; false; "█" * $filled // "") + paint("90"; "░" * (8 - $filled) // "")
         + " \(human($used))/\(human($cap))"
         + (if $over then paint("33"; " ▲") else "" end),

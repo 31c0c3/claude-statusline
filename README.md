@@ -4,7 +4,7 @@ A two-line [Claude Code](https://code.claude.com) status line in bash and jq.
 Plain text when all is well; yellow or red only when something needs attention.
 
 ```
-claude-plugins ⌥ main* | statusline setup | ██████░░ 146k/200k | C 97% ● 47m | $2.88                         Opus 5.5 high
+claude-plugins ⌥ main* | ██████░░ 146k/200k | C 97% ● 47m | $2.88                                            Opus 5.5 high
                                                         8% ↻ 4h16m | 40/57% ↻ 3d12h | d1411d72-0c5e-4f3a-9b7d-2e8a6c41f905
 ```
 
@@ -13,7 +13,6 @@ claude-plugins ⌥ main* | statusline setup | ██████░░ 146k/200k
 | Segment | Shows | Warns |
 |---|---|---|
 | `claude-plugins ⌥ main*` | Folder, git branch, `*` for uncommitted changes | `*` in yellow |
-| `statusline setup` | Session name from `/rename`, or the generated title, cut to 28 characters | |
 | `██████░░ 146k/200k` | Context used, measured against a 200k soft cap; past it, against the full window | Yellow past the cap, with `▲` |
 | `C 97% ● 47m` | Prompt-cache hit rate, time until the cache expires | Hit rate below 80% (red below 50%); `○ ↑ 117k` once expired: what the next message re-caches |
 | `$2.88` | Session cost | |
