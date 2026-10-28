@@ -1,5 +1,5 @@
 #!/bin/bash
-# Claude Code status line: folder ⌥ branch* | ctx bar | cache | $cost ... model effort
+# Claude Code status line: folder ⌥ branch* | session | ctx bar | cache | $cost ... model effort
 #                                                          ... 5h | 7d | session ID
 # Icons: Arrows or Geometric Shapes glyphs, each followed by a space. Rarer glyphs come from a
 # fallback font, render wider than their one cell, and overlap the next character.
@@ -7,7 +7,7 @@ input=$(cat)
 dir=$(jq -r '.workspace.current_dir' <<<"$input")
 branch=$(git -C "$dir" --no-optional-locks branch --show-current 2>/dev/null)
 dirty=$(git -C "$dir" --no-optional-locks status --porcelain 2>/dev/null | head -1)
-# In Herdr the session name labels Claude's pane instead, on the border beside a split; it appears after the first message
+# In Herdr the session name also labels Claude's pane, on the border beside a split; it appears after the first message
 name=$(jq -r '.session_name // empty' <<<"$input")
 [[ -n $HERDR_PANE_ID && -n $name ]] && herdr pane rename "$HERDR_PANE_ID" "$name" >/dev/null 2>&1
 
@@ -53,6 +53,8 @@ jq -rj --arg branch "$branch" --arg dirty "$dirty" --argjson soft "$soft_cap" --
   | ([
       (.workspace.current_dir | split("/") | last)
         + (if $branch != "" then " ⌥ " + $branch + (if $dirty != "" then paint("33"; "*") else "" end) else "" end),
+      # Session name from /rename or the AI-generated title, truncated
+      (.session_name // empty | if length > 28 then .[:27] + "…" else . end),
       warn($over; false; "█" * $filled // "") + paint("90"; "░" * (8 - $filled) // "")
         + " \(human($used))/\(human($cap))"
         + (if $over then paint("33"; " ▲") else "" end),
@@ -67,10 +69,9 @@ jq -rj --arg branch "$branch" --arg dirty "$dirty" --argjson soft "$soft_cap" --
   | ([
       (.rate_limits.five_hour // empty
        | limit(.used_percentage >= 50; .used_percentage >= 80; "\(.used_percentage | round)%"; ""; .resets_at)),
-      # 7-day used/budget: the budget grows by 1/7 at the start of each day; red when a day ahead
+      # 7-day used/budget: the budget grows evenly with the time elapsed in the window; red when a day ahead
       (.rate_limits.seven_day // empty
-       | ([((7 * 86400 - (.resets_at - now)) / 86400 | ceil), 1] | max) as $day
-       | ([$day * 100 / 7, 100] | min) as $budget
+       | ((7 * 86400 - (.resets_at - now)) * 100 / (7 * 86400) | [., 0] | max | [., 100] | min) as $budget
        | limit(.used_percentage > $budget; .used_percentage > $budget + 100 / 7;
            "\(.used_percentage | round)"; "/\($budget | round)%"; .resets_at))
     ] | join($sep)) as $limits
